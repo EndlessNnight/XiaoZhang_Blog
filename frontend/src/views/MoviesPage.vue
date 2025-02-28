@@ -82,13 +82,20 @@
                         <el-button class="view-detail-btn" size="small" round>查看详情</el-button>
                       </div>
                     </div>
-                    <div class="movie-type-badge">{{ getMediaTypeText(movie.type) }}</div>
-                    <div :class="['movie-rating-badge', { 'no-rating': !movie.rating }]">
-                      <span v-if="movie.rating">{{ (movie.rating).toFixed(1) }}</span>
-                      <span v-else>暂无</span>
-                    </div>
-                    <div class="movie-watched-badge" v-if="movie.watched">
-                      <el-icon><Check /></el-icon>
+                    <!-- <div class="movie-type-badge">{{ getMediaTypeText(movie.type) }}</div> -->
+                    <div class="movie-status-bar">
+                      <div :class="['status-badge', 'rating', { 'no-rating': !movie.rating }]">
+                        <span v-if="movie.rating">{{ (movie.rating).toFixed(1) }}</span>
+                        <span v-else>暂无</span>
+                      </div>
+                      <div :class="['status-badge', getWatchStatusClass(movie)]">
+                        <el-icon v-if="movie.watch_date"><Check /></el-icon>
+                        <el-icon v-else-if="movie.watch_status === 'want_to_watch'"><Star /></el-icon>
+                        <el-icon v-else><Clock /></el-icon>
+                      </div>
+                      <div :class="['status-badge', movie.comment ? 'has-notes' : 'no-notes']">
+                        <el-icon><EditPen /></el-icon>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -246,7 +253,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Check, Link } from '@element-plus/icons-vue'
+import { Check, Star, Clock, Link, EditPen } from '@element-plus/icons-vue'
 import axios from '../utils/axios'
 import SiteHeader from '../components/SiteHeader.vue'
 import SiteFooter from '../components/SiteFooter.vue'
@@ -284,7 +291,7 @@ const fetchMovies = async (page = 1) => {
     
     // 如果有选择类型，添加类型过滤
     if (activeTab.value !== 'all') {
-      params.type = activeTab.value
+      params.media_type = activeTab.value
     }
     
     const response = await axios.get('/v1/movies/', { params })
@@ -429,6 +436,13 @@ const getGenreType = (genre) => {
   }
   
   return genreMap[genre] || ''
+}
+
+// 获取观看状态样式类
+const getWatchStatusClass = (movie) => {
+  if (movie.watch_date) return 'watched'
+  if (movie.watch_status === 'want_to_watch') return 'want-to-watch'
+  return 'not-watched'
 }
 
 // 检查URL参数中是否有电影ID
@@ -767,47 +781,86 @@ watch(selectedMovie, (newMovie) => {
   z-index: 1;
 }
 
-.movie-rating-badge {
+.movie-status-bar {
   position: absolute;
   top: 10px;
   right: 10px;
-  background-color: rgba(243, 156, 18, 0.9);
-  color: white;
-  min-width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 20px;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 1;
+  transition: all 0.3s ease;
+  width: 44px;
+  overflow: hidden;
+}
+
+.movie-card:hover .movie-status-bar {
+  width: 120px;
+  background-color: rgba(0, 0, 0, 0.75);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.status-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  color: white;
   font-size: 14px;
-  backdrop-filter: blur(4px);
-  z-index: 1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  padding: 0 6px;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
-.movie-rating-badge.no-rating {
+.status-badge:not(.rating) {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.movie-card:hover .status-badge:not(.rating) {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.status-badge.rating {
+  background-color: rgba(243, 156, 18, 0.9);
+  font-weight: bold;
+  min-width: 32px;
+  padding: 0 4px;
+}
+
+.status-badge.rating.no-rating {
   background-color: rgba(149, 165, 166, 0.9);
   font-size: 12px;
   font-weight: normal;
 }
 
-.movie-watched-badge {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
+.status-badge.watched {
   background-color: rgba(39, 174, 96, 0.9);
-  color: white;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-  z-index: 1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.status-badge.want-to-watch {
+  background-color: rgba(241, 196, 15, 0.9);
+}
+
+.status-badge.not-watched {
+  background-color: rgba(149, 165, 166, 0.9);
+}
+
+.status-badge.has-notes {
+  background-color: rgba(155, 89, 182, 0.9);
+}
+
+.status-badge.no-notes {
+  background-color: rgba(149, 165, 166, 0.9);
+}
+
+.status-badge .el-icon {
+  font-size: 16px;
 }
 
 /* 修改电影信息区域的样式 */
