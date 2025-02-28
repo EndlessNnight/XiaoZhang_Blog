@@ -4,6 +4,7 @@ from typing import Optional
 from ..models.user import User
 from ..schemas.user import UserCreate, UserUpdate
 from ..core.security import get_password_hash, verify_password
+import logging
 
 def get_user(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
@@ -36,23 +37,30 @@ def update_user(db: Session, user_id: int, user: UserUpdate, current_user_id: in
     if not db_user:
         raise HTTPException(status_code=404, detail="用户不存在")
     
-    if db_user.is_admin:
-        admin_count = db.query(User).filter(User.is_admin == True).count()
-        if admin_count <= 1:
-            raise HTTPException(status_code=400, detail="系统中必须保留至少一个管理员账户")
-    
     try:
         need_relogin = False
         update_data = user.dict(exclude_unset=True)
         
+        # 检查管理员权限变更
+        if 'is_admin' in update_data and db_user.is_admin and not update_data['is_admin']:
+            admin_count = db.query(User).filter(User.is_admin == True).count()
+            if admin_count <= 1:
+                # 如果是最后一个管理员，移除 is_admin 字段，但保留其他更新
+                update_data.pop('is_admin')
+                # 可以添加一个警告信息
+                # logging.warning(f"尝试移除最后一个管理员的权限 (user_id: {user_id})")
+        
+        # 处理密码更新
         if 'password' in update_data and update_data['password']:
             update_data['hashed_password'] = get_password_hash(update_data.pop('password'))
             if user_id == current_user_id:
                 need_relogin = True
         
+        # 检查是否需要重新登录
         if user_id == current_user_id and any(key in update_data for key in ['username', 'email']):
             need_relogin = True
         
+        # 更新用户信息
         for key, value in update_data.items():
             setattr(db_user, key, value)
         

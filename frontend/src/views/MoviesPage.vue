@@ -10,106 +10,110 @@
 
     <section class="movies-content">
       <div class="container">
-        <el-skeleton v-if="loading" :rows="5" animated />
-        
-        <div v-else>
-          <!-- 分类标签和排序选项 -->
-          <div class="filter-section">
-            <div class="category-tabs">
-              <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-                <el-tab-pane label="全部" name="all"></el-tab-pane>
-                <el-tab-pane label="电影" name="movie"></el-tab-pane>
-                <el-tab-pane label="电视剧" name="tv"></el-tab-pane>
-              </el-tabs>
-            </div>
-            
-            <div class="sort-options">
-              <el-select v-model="sortBy" placeholder="排序方式" @change="handleSortChange">
-                <el-option label="观看日期 ↓" value="watch_date_desc"></el-option>
-                <el-option label="观看日期 ↑" value="watch_date_asc"></el-option>
-                <el-option label="评分 ↓" value="rating_desc"></el-option>
-                <el-option label="发行日期 ↓" value="release_date_desc"></el-option>
-              </el-select>
-            </div>
+        <div class="filter-section">
+          <div class="category-tabs">
+            <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+              <el-tab-pane label="全部" name="all"></el-tab-pane>
+              <el-tab-pane label="电影" name="movie"></el-tab-pane>
+              <el-tab-pane label="电视剧" name="tv"></el-tab-pane>
+            </el-tabs>
           </div>
           
-          <!-- 使用卡片布局展示影视内容 -->
-          <el-row :gutter="24">
-            <el-col 
-              v-for="movie in filteredMovies" 
-              :key="movie.id" 
-              :xs="12" 
-              :sm="8" 
-              :md="6" 
-              :lg="6" 
-              :xl="6"
-              class="movie-col"
-            >
-              <div 
-                class="movie-card" 
-                @click="showMovieDetail(movie)"
+          <div class="sort-options">
+            <el-select v-model="sortBy" placeholder="排序方式" @change="handleSortChange">
+              <el-option label="观看日期 ↓" value="watch_date_desc"></el-option>
+              <el-option label="观看日期 ↑" value="watch_date_asc"></el-option>
+              <el-option label="评分 ↓" value="rating_desc"></el-option>
+              <el-option label="发行日期 ↓" value="release_date_desc"></el-option>
+            </el-select>
+          </div>
+        </div>
+        
+        <div class="movies-list-container">
+          <el-skeleton v-if="loading" :rows="5" animated />
+          
+          <transition-group 
+            v-else 
+            name="fade" 
+            tag="div"
+            appear
+          >
+            <el-row :gutter="24" :key="activeTab + sortBy">
+              <el-col 
+                v-for="movie in filteredMovies" 
+                :key="movie.id" 
+                :xs="12" 
+                :sm="8" 
+                :md="6" 
+                :lg="6" 
+                :xl="6"
+                class="movie-col"
               >
-                <div class="movie-poster">
-                  <img :src="getImageUrl(movie.poster_path)" :alt="movie.title" />
-                  <div class="movie-overlay">
-                    <div class="movie-overlay-content">
-                      <el-button type="primary" round size="small">查看详情</el-button>
+                <div 
+                  class="movie-card" 
+                  @click="showMovieDetail(movie)"
+                >
+                  <div class="movie-poster">
+                    <img :src="getImageUrl(movie.poster_path)" :alt="movie.title" />
+                    <div class="movie-overlay">
+                      <div class="movie-overlay-content">
+                        <h3 class="movie-title">{{ movie.title }}</h3>
+                        <p class="movie-year">{{ getYear(movie.release_date) }}</p>
+                        <div class="movie-genres-mini">
+                          <template v-if="getGenresArray(movie.genres).length > 0">
+                            <el-tag 
+                              v-for="genre in getGenresArray(movie.genres).slice(0, 4)" 
+                              :key="genre"
+                              size="small"
+                              effect="plain"
+                              class="genre-tag-mini"
+                            >
+                              {{ genre }}
+                            </el-tag>
+                            <span v-if="getGenresArray(movie.genres).length > 4" class="more-genres">
+                              +{{ getGenresArray(movie.genres).length - 4 }}
+                            </span>
+                          </template>
+                          <span v-else class="no-genres">暂无标签</span>
+                        </div>
+                        <p class="movie-watched-date" v-if="movie.watch_date">
+                          观看于: {{ formatWatchedDate(movie.watch_date) }}
+                        </p>
+                        <el-button class="view-detail-btn" size="small" round>查看详情</el-button>
+                      </div>
+                    </div>
+                    <div class="movie-type-badge">{{ getMediaTypeText(movie.type) }}</div>
+                    <div :class="['movie-rating-badge', { 'no-rating': !movie.rating }]">
+                      <span v-if="movie.rating">{{ (movie.rating).toFixed(1) }}</span>
+                      <span v-else>暂无</span>
+                    </div>
+                    <div class="movie-watched-badge" v-if="movie.watched">
+                      <el-icon><Check /></el-icon>
                     </div>
                   </div>
-                  <div class="movie-type-badge">{{ getMediaTypeText(movie.type) }}</div>
-                  <div class="movie-rating-badge">
-                    <span>{{ (movie.rating).toFixed(1) }}</span>
-                  </div>
-                  <div class="movie-watched-badge" v-if="movie.watched">
-                    <el-icon><Check /></el-icon>
-                  </div>
                 </div>
-                <div class="movie-info">
-                  <h3 class="movie-title" :title="movie.title">{{ movie.title }}</h3>
-                  <p class="movie-year">{{ getYear(movie.release_date) }}</p>
-                  <div class="movie-genres-mini">
-                    <template v-if="getGenresArray(movie.genres).length > 0">
-                      <el-tag 
-                        v-for="genre in getGenresArray(movie.genres).slice(0, 4)" 
-                        :key="genre"
-                        size="small"
-                        effect="plain"
-                        class="genre-tag-mini"
-                      >
-                        {{ genre }}
-                      </el-tag>
-                      <span v-if="getGenresArray(movie.genres).length > 4" class="more-genres">
-                        +{{ getGenresArray(movie.genres).length - 4 }}
-                      </span>
-                    </template>
-                    <span v-else class="no-genres">暂无标签</span>
-                  </div>
-                  <p class="movie-watched-date" v-if="movie.watch_date">
-                    观看于: {{ formatWatchedDate(movie.watch_date) }}
-                  </p>
-                </div>
-              </div>
-            </el-col>
-          </el-row>
-          
-          <!-- 无数据提示 -->
-          <el-empty 
-            v-if="filteredMovies.length === 0" 
-            description="暂无影视内容" 
-            :image-size="200"
-          ></el-empty>
-          
-          <!-- 分页 -->
-          <div class="pagination-container" v-if="totalMovies > 0">
-            <el-pagination
-              v-model:current-page="currentPage"
-              :page-size="pageSize"
-              :total="totalMovies"
-              layout="prev, pager, next, jumper"
-              @current-change="handlePageChange"
-              background
-            />
-          </div>
+              </el-col>
+            </el-row>
+            
+            <el-empty 
+              v-if="filteredMovies.length === 0" 
+              :key="'empty'"
+              description="暂无影视内容" 
+              :image-size="200"
+            ></el-empty>
+          </transition-group>
+        </div>
+        
+        <!-- 分页 -->
+        <div class="pagination-container" v-if="totalMovies > 0">
+          <el-pagination
+            v-model:current-page="currentPage"
+            :page-size="pageSize"
+            :total="totalMovies"
+            layout="prev, pager, next, jumper"
+            @current-change="handlePageChange"
+            background
+          />
         </div>
       </div>
     </section>
@@ -479,6 +483,38 @@ watch(selectedMovie, (newMovie) => {
 /* 内容区域样式 */
 .movies-content {
   padding: 40px 0;
+  min-height: calc(100vh - 300px); /* 保持最小高度，防止内容区域高度跳动 */
+}
+
+/* 骨架屏样式 */
+.movies-content :deep(.el-skeleton) {
+  padding: 20px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* 添加内容过渡效果 */
+.fade-move,
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.fade-leave-active {
+  position: absolute;
+}
+
+/* 修改电影列表容器样式 */
+.movies-list-container {
+  position: relative;
+  min-height: 200px; /* 设置最小高度 */
 }
 
 /* 筛选区域样式 */
@@ -487,14 +523,70 @@ watch(selectedMovie, (newMovie) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
+  background-color: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
 }
 
 .category-tabs {
   flex: 1;
 }
 
+.category-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.category-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.category-tabs :deep(.el-tabs__item) {
+  font-size: 15px;
+  padding: 0 24px;
+  height: 40px;
+  line-height: 40px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.category-tabs :deep(.el-tabs__item:hover) {
+  color: #409eff;
+}
+
+.category-tabs :deep(.el-tabs__item.is-active) {
+  font-weight: 600;
+}
+
+.category-tabs :deep(.el-tabs__active-bar) {
+  height: 3px;
+  border-radius: 3px;
+}
+
 .sort-options {
-  width: 200px;
+  width: 180px;
+  margin-left: 20px;
+}
+
+.sort-options :deep(.el-input__wrapper) {
+  border-radius: 20px;
+  padding: 0 15px;
+  box-shadow: 0 0 0 1px #dcdfe6 inset;
+  transition: all 0.3s ease;
+}
+
+.sort-options :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #409eff inset;
+}
+
+.sort-options :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #409eff inset !important;
+}
+
+.sort-options :deep(.el-select-dropdown__item) {
+  padding: 0 15px;
+  height: 36px;
+  line-height: 36px;
 }
 
 /* 电影卡片样式 */
@@ -510,8 +602,6 @@ watch(selectedMovie, (newMovie) => {
   transition: all 0.3s ease;
   cursor: pointer;
   height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .movie-card:hover {
@@ -545,16 +635,122 @@ watch(selectedMovie, (newMovie) => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0) 60%);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.8) 100%);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
+  padding: 24px;
+  color: white;
+  transform: translateY(5px);
 }
 
 .movie-card:hover .movie-overlay {
   opacity: 1;
+  transform: translateY(0);
+}
+
+.movie-overlay-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.movie-overlay .movie-title {
+  color: white;
+  font-size: 20px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  max-height: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  width: 100%;
+  font-weight: 600;
+}
+
+.movie-overlay .movie-year {
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.movie-overlay .movie-genres-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+  justify-content: center;
+  width: 100%;
+}
+
+.movie-overlay .genre-tag-mini {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+  font-size: 12px !important;
+  padding: 0 10px !important;
+  height: 24px !important;
+  line-height: 22px !important;
+  backdrop-filter: blur(4px);
+}
+
+.movie-overlay .more-genres {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.15);
+  padding: 0 10px;
+  border-radius: 12px;
+  height: 24px;
+  line-height: 24px;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(4px);
+}
+
+.movie-overlay .no-genres {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 0 10px;
+  border-radius: 12px;
+  height: 24px;
+  line-height: 24px;
+  display: inline-block;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+}
+
+.movie-overlay .movie-watched-date {
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 20px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.movie-overlay .view-detail-btn {
+  width: 140px;
+  background-color: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
+  height: 36px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.movie-overlay .view-detail-btn:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .movie-type-badge {
@@ -567,15 +763,17 @@ watch(selectedMovie, (newMovie) => {
   border-radius: 4px;
   font-size: 13px;
   font-weight: 500;
+  backdrop-filter: blur(4px);
+  z-index: 1;
 }
 
 .movie-rating-badge {
   position: absolute;
   top: 10px;
   right: 10px;
-  background-color: #f39c12;
+  background-color: rgba(243, 156, 18, 0.9);
   color: white;
-  width: 36px;
+  min-width: 36px;
   height: 36px;
   border-radius: 50%;
   display: flex;
@@ -583,13 +781,23 @@ watch(selectedMovie, (newMovie) => {
   justify-content: center;
   font-weight: bold;
   font-size: 14px;
+  backdrop-filter: blur(4px);
+  z-index: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  padding: 0 6px;
+}
+
+.movie-rating-badge.no-rating {
+  background-color: rgba(149, 165, 166, 0.9);
+  font-size: 12px;
+  font-weight: normal;
 }
 
 .movie-watched-badge {
   position: absolute;
   bottom: 10px;
   right: 10px;
-  background-color: #27ae60;
+  background-color: rgba(39, 174, 96, 0.9);
   color: white;
   width: 30px;
   height: 30px;
@@ -597,13 +805,14 @@ watch(selectedMovie, (newMovie) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  backdrop-filter: blur(4px);
+  z-index: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
+/* 修改电影信息区域的样式 */
 .movie-info {
-  padding: 16px;
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
+  display: none; /* 隐藏原来的信息区域 */
 }
 
 .movie-title {
@@ -907,15 +1116,18 @@ watch(selectedMovie, (newMovie) => {
   .filter-section {
     flex-direction: column;
     align-items: stretch;
+    padding: 15px;
   }
   
   .sort-options {
     margin-top: 15px;
     width: 100%;
+    margin-left: 0;
   }
   
-  .sort-options .el-select {
-    width: 100%;
+  .category-tabs :deep(.el-tabs__item) {
+    padding: 0 15px;
+    font-size: 14px;
   }
   
   .movie-title {
